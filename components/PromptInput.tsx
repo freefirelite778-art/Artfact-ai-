@@ -11,7 +11,7 @@ interface PromptInputProps {
   artisticStyle: ArtisticStyle;
   setArtisticStyle: (style: ArtisticStyle) => void;
   onGenerate: () => void;
-  onGenerateAllStyles: () => void;
+  onGenerateAllRatios: () => void;
   isGenerating: boolean;
 }
 
@@ -23,7 +23,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   artisticStyle,
   setArtisticStyle,
   onGenerate,
-  onGenerateAllStyles,
+  onGenerateAllRatios,
   isGenerating,
 }) => {
   return (
@@ -49,11 +49,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           <p className="text-sm font-semibold text-slate-300 mb-2">Aspect Ratio</p>
           <div className="flex flex-wrap gap-2 items-center">
              <button
-              onClick={onGenerateAllStyles}
+              onClick={onGenerateAllRatios}
               disabled={isGenerating || !prompt.trim()}
               className="px-3 py-2 text-xs rounded-md border transition-colors duration-200 flex items-center gap-2 font-semibold bg-gradient-to-r from-cyan-500/[.20] to-purple-600/[.20] border-slate-600 hover:border-cyan-400 text-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Icon name="allStyles" />
+              <Icon name="allRatios" />
               <span className="hidden sm:inline">All Ratios</span>
             </button>
             <div className="h-6 w-px bg-slate-700 mx-2"></div>

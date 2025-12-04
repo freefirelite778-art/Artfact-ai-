@@ -79,10 +79,9 @@ const App: React.FC = () => {
 
   const generateFinalPrompt = (basePrompt: string): string => {
     const generalEnhancers = 'digital art, 4k resolution, high detail, masterpiece';
-    const styleModifier = artisticStyle.value !== 'None'
-      ? artisticStyle.value
-      : 'futuristic, vibrant colors, epic composition';
-    return `${basePrompt}, ${styleModifier}, ${generalEnhancers}`;
+    const styleModifier = artisticStyle.value !== 'None' ? artisticStyle.value : '';
+    
+    return [basePrompt, styleModifier, generalEnhancers].filter(Boolean).join(', ');
   };
 
   const handleImageGenerated = async (imgBase64: string) => {
@@ -118,13 +117,13 @@ const App: React.FC = () => {
     }
   };
   
-  const handleGenerateAllStyles = async () => {
+  const handleGenerateAllRatios = async () => {
     if (!prompt.trim()) {
       setError("Please enter a prompt to generate images.");
       return;
     }
     setIsGenerating(true);
-    setLoadingMessage("Crafting your vision, style by style...");
+    setLoadingMessage("Crafting your vision, ratio by ratio...");
     setGeneratedImages([]);
     setError(null);
     try {
@@ -163,7 +162,7 @@ const App: React.FC = () => {
             artisticStyle={artisticStyle}
             setArtisticStyle={setArtisticStyle}
             onGenerate={handleGenerate}
-            onGenerateAllStyles={handleGenerateAllStyles}
+            onGenerateAllRatios={handleGenerateAllRatios}
             isGenerating={isGenerating}
           />
           {error && <p className="text-red-400 mt-4 text-center max-w-2xl">{error}</p>}
