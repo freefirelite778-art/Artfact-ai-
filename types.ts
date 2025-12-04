@@ -12,3 +12,8 @@ export interface GeneratedImage {
   id: string;
   src: string;
 }
+
+export interface ArtisticStyle {
+  label: string;
+  value: string;
+}

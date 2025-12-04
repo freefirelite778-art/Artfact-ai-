@@ -22,10 +22,10 @@ export const ImageCard: React.FC<ImageCardProps> = ({ image, onClick, ...props }
   return (
     <div
       {...props}
-      className={`group relative aspect-square rounded-xl overflow-hidden cursor-pointer border-2 border-transparent hover:border-cyan-500 transition-all duration-300 shadow-lg shadow-black/[.30] ${props.className}`}
+      className={`group relative rounded-xl overflow-hidden cursor-pointer border-2 border-transparent hover:border-cyan-500 transition-all duration-300 shadow-lg shadow-black/[.30] ${props.className}`}
       onClick={onClick}
     >
-      <img src={image.src} alt="Generated AI art" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+      <img src={image.src} alt="Generated AI art" className="w-full h-auto block transition-transform duration-300 group-hover:scale-105" />
       <div className="absolute inset-0 bg-black/[.50] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4">
         <button
           title="View Full Size"

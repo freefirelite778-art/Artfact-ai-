@@ -4,17 +4,19 @@ import { PromptInput } from './components/PromptInput';
 import { ImageGallery } from './components/ImageGallery';
 import { IntroAnimation } from './components/IntroAnimation';
 import { ImageViewer } from './components/ImageViewer';
-import { generateImages } from './services/geminiService';
-import type { GeneratedImage, AspectRatio } from './types';
-import { DEFAULT_ASPECT_RATIO } from './constants';
+import { generateImages, generateImageForAllAspectRatios } from './services/geminiService';
+import type { GeneratedImage, AspectRatio, ArtisticStyle } from './types';
+import { DEFAULT_ASPECT_RATIO, ARTISTIC_STYLES } from './constants';
 import { LoadingSpinner } from './components/LoadingSpinner';
 
 const App: React.FC = () => {
   const [showIntro, setShowIntro] = useState(true);
   const [prompt, setPrompt] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(DEFAULT_ASPECT_RATIO);
+  const [artisticStyle, setArtisticStyle] = useState<ArtisticStyle>(ARTISTIC_STYLES[0]);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,30 +77,66 @@ const App: React.FC = () => {
     });
   };
 
+  const generateFinalPrompt = (basePrompt: string): string => {
+    const generalEnhancers = 'digital art, 4k resolution, high detail, masterpiece';
+    const styleModifier = artisticStyle.value !== 'None'
+      ? artisticStyle.value
+      : 'futuristic, vibrant colors, epic composition';
+    return `${basePrompt}, ${styleModifier}, ${generalEnhancers}`;
+  };
+
+  const handleImageGenerated = async (imgBase64: string) => {
+    const watermarkedImageSrc = await addWatermark(imgBase64);
+    const newImage: GeneratedImage = {
+      id: `img-${Date.now()}-${Math.random()}`,
+      src: watermarkedImageSrc,
+    };
+    setGeneratedImages(prevImages => [...prevImages, newImage]);
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       setError("Please enter a prompt to generate images.");
       return;
     }
     setIsGenerating(true);
+    setLoadingMessage("Conjuring your creations, one by one...");
     setGeneratedImages([]);
     setError(null);
     try {
-      const enhancedPrompt = `${prompt}, digital art, hyperrealistic, futuristic, vibrant colors, epic composition`;
-      const images = await generateImages(enhancedPrompt, aspectRatio.value);
-      
-      const watermarkedImages = await Promise.all(
-        images.map(imgBase64 => addWatermark(imgBase64))
-      );
-      
-      const newImages: GeneratedImage[] = watermarkedImages.map((src, index) => ({
-        id: `img-${Date.now()}-${index}`,
-        src,
-      }));
-      setGeneratedImages(newImages);
-    } catch (err) {
-      setError("Failed to generate images. Please try again.");
-      console.error(err);
+      const finalPrompt = generateFinalPrompt(prompt);
+      await generateImages(finalPrompt, aspectRatio.value, handleImageGenerated);
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An unknown error occurred. Please try again.");
+      }
+      console.error(error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  const handleGenerateAllStyles = async () => {
+    if (!prompt.trim()) {
+      setError("Please enter a prompt to generate images.");
+      return;
+    }
+    setIsGenerating(true);
+    setLoadingMessage("Crafting your vision, style by style...");
+    setGeneratedImages([]);
+    setError(null);
+    try {
+      const finalPrompt = generateFinalPrompt(prompt);
+      await generateImageForAllAspectRatios(finalPrompt, handleImageGenerated);
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An unknown error occurred. Please try again.");
+      }
+      console.error(error);
     } finally {
       setIsGenerating(false);
     }
@@ -122,16 +160,19 @@ const App: React.FC = () => {
             setPrompt={setPrompt}
             aspectRatio={aspectRatio}
             setAspectRatio={setAspectRatio}
+            artisticStyle={artisticStyle}
+            setArtisticStyle={setArtisticStyle}
             onGenerate={handleGenerate}
+            onGenerateAllStyles={handleGenerateAllStyles}
             isGenerating={isGenerating}
           />
-          {error && <p className="text-red-400 mt-4 text-center">{error}</p>}
+          {error && <p className="text-red-400 mt-4 text-center max-w-2xl">{error}</p>}
           
-          {isGenerating ? (
+          {isGenerating && generatedImages.length === 0 ? (
              <div className="flex flex-col items-center justify-center text-center mt-20">
                 <LoadingSpinner />
-                <p className="text-lg text-cyan-300 mt-4 font-orbitron tracking-wider">Conjuring a quartet of creations...</p>
-                <p className="text-sm text-slate-400 mt-2">Generating 4 unique images. Great art requires patience.</p>
+                <p className="text-lg text-cyan-300 mt-4 font-orbitron tracking-wider">{loadingMessage}</p>
+                <p className="text-sm text-slate-400 mt-2">This may take a moment. Great art requires patience.</p>
              </div>
           ) : (
             <ImageGallery images={generatedImages} onImageClick={setSelectedImage} />

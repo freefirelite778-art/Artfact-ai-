@@ -1,20 +1,56 @@
 import { GoogleGenAI } from "@google/genai";
+import { ASPECT_RATIOS } from '../constants';
 
-const API_KEY = process.env.API_KEY;
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-if (!API_KEY) {
-  // This is a placeholder. In a real app, the key is expected to be in the environment.
-  console.warn("API_KEY is not set in environment variables. Using a placeholder.");
-}
+const processAndReturnImage = (response: any): string | null => {
+  const imagePart = response.candidates?.[0]?.content?.parts?.find(
+    (part: any) => part.inlineData
+  );
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+  if (imagePart?.inlineData) {
+    return imagePart.inlineData.data;
+  }
 
-export const generateImages = async (prompt: string, aspectRatio: string): Promise<string[]> => {
+  if (response.promptFeedback?.blockReason) {
+    const reason = response.promptFeedback.blockReason.replace(/_/g, ' ').toLowerCase();
+    const capitalizedReason = reason.charAt(0).toUpperCase() + reason.slice(1);
+    throw new Error(`Your prompt was blocked for safety reasons: ${capitalizedReason}.`);
+  }
+  
+  throw new Error('Image generation failed due to an unexpected API response. Please try a different prompt.');
+};
+
+const handleApiError = (error: unknown): Error => {
+  console.error("Error during API call:", error);
+  let finalError = new Error("An unknown API error occurred.");
+  if (error instanceof Error) {
+      let message = error.message;
+      try {
+          // The log shows the message can be a JSON string
+          const parsedError = JSON.parse(message);
+          if (parsedError?.error?.status === 'RESOURCE_EXHAUSTED') {
+              message = 'Rate limit exceeded. The AI is a bit busy! Please wait a few moments before trying again.';
+          } else if (parsedError?.error?.message) {
+              message = parsedError.error.message;
+          }
+      } catch(e) {
+          // Not JSON, use original message
+      }
+      finalError = new Error(message);
+  }
+  return finalError;
+};
+
+export const generateImages = async (
+  prompt: string,
+  aspectRatio: string,
+  onImageGenerated: (imageBase64: string) => void
+): Promise<void> => {
   try {
-    const generationPromises = [];
-    // Create 4 parallel requests for images.
+    // Generate images sequentially to avoid rate limiting.
     for (let i = 0; i < 4; i++) {
-      const promise = ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
           parts: [{ text: prompt }],
@@ -25,27 +61,40 @@ export const generateImages = async (prompt: string, aspectRatio: string): Promi
           },
         },
       });
-      generationPromises.push(promise);
-    }
-
-    const responses = await Promise.all(generationPromises);
-
-    const images: string[] = responses.map(response => {
-      if (response.candidates && response.candidates.length > 0) {
-        const imagePart = response.candidates[0].content.parts.find(part => part.inlineData);
-        if (imagePart && imagePart.inlineData) {
-          return imagePart.inlineData.data;
-        }
+      const imageBase64 = processAndReturnImage(response);
+      if (imageBase64) {
+        onImageGenerated(imageBase64);
       }
-      // If an image is not found in a response, we throw an error for that specific generation.
-      // Promise.all will reject if any of the promises reject.
-      throw new Error('Image generation failed for one of the requests.');
-    });
-
-    return images;
-    
+    }
   } catch (error) {
-    console.error("Error generating images:", error);
-    throw new Error("Failed to generate images from the API.");
+    throw handleApiError(error);
+  }
+};
+
+export const generateImageForAllAspectRatios = async (
+  prompt: string,
+  onImageGenerated: (imageBase64: string) => void
+): Promise<void> => {
+  try {
+     // Generate images sequentially to avoid rate limiting.
+    for (const ratio of ASPECT_RATIOS) {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{ text: prompt }],
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: ratio.value,
+          },
+        },
+      });
+      const imageBase64 = processAndReturnImage(response);
+      if (imageBase64) {
+        onImageGenerated(imageBase64);
+      }
+    }
+  } catch (error) {
+    throw handleApiError(error);
   }
 };
